@@ -137,8 +137,24 @@ public:
 BlockCore block = BlockCore();
 FineGrainedCore fineGrained = FineGrainedCore();
 
-
+// run a simulation of BlockCore
 void CORE_BlockedMT() {
+    while (true) {
+        bool stillAlive = false;
+
+        // current_thread = fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize]
+        for (int i = 0; i < block.threadsSize; i++) {
+            if (fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize].finished) {
+                continue;
+            }
+            stillAlive = true;
+            // do stuff with the thread casue its not finished
+
+
+        }
+        // end if all threads are finished
+        if (!stillAlive) break;
+    }
 }
 
 void CORE_FinegrainedMT() {
