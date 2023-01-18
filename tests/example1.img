@@ -1,0 +1,49 @@
+# Test 1
+# Memory image example - comments are allowed in lines that start with # as first character!
+# The memory image file is composed from segments of 2 types, defined by an "@" location/type line:
+#  1. "I@<address>" : The following lines are instructions at given memory offset.
+#     Each subsequent line (up to the next empty line or comment) is an instruction of format: <command> <dst>,<src1>,<src2>
+#     Commands is one of: NOP, ADD, SUB, LOAD, STORE, 
+#     operands are $<num> for any general purpose register, or just a number (in decimal or hex.) for immediate (for src2 only)
+#  2. "D@<address>" : The following lines are data values at given memory offset.
+#     Each subsequent line (up to the next empty line or comment) is data value of a 32 bit (in decimal or hex.) data word, e.g., 0x12A556FF
+# The instructions are:
+# 	NOP
+#	ADD,ADDI $dst, $src1, $src2 		(dst <- src1 + src2)
+#	SUB,SUBI $dst, $src1, $src2 		(dst <- src1 - src2)
+#	LOAD $dst, $src1, $src2 	(dst <- Mem[src1 + src2]  src2 may be an immediate)
+#	STORE $dst, $src1, $src2 	(Mem[dst + src2] <- src1  src2 may be an immediate)
+
+L5  # load latency
+S3  # store latency
+O1  # overhead for switch
+N3  # there is three threads that run 
+
+# Thread 0
+T0 
+I@0x00000000 #each thread starts from address 0 (instruction address)
+HALT $0 #ends immdediatly 
+
+# Thread 1
+T1
+I@0x00000000
+LOAD $5, $0, 0x32A0   # 0x0
+ADD $5, $5, $5        # 0x4
+ADD $2, $5, $5        # 0x8
+HALT $0
+
+T2
+I@0x00000000
+STORE $0, $0, 0x32A4  # 0x0
+LOAD $5, $0, 0x32A0   # 0x4
+ADDI $7, $5, 5        # 0x8
+ADD $2, $5, $5        # 0xC
+HALT $0
+
+# Data for this program. Any other location that is not explicitly set is implicitly set to zero.
+# All the threads share the same memory space
+D@0x000032A0
+0x4
+0x1
+-8
+

@@ -1,0 +1,34 @@
+# Test 2
+
+L4 #load latency
+S1 #store latency
+O1 #overhead for switch
+N3  #there is three threads that run 
+
+T0 
+I@0x00000000
+LOAD $1, $0, 0x32A0
+LOAD $2, $0, 0x32A4
+SUB $3, $2, $1
+HALT $0
+
+T1
+I@0x00000000
+LOAD $5, $0, 0x32A0 # 0x0
+ADD $5, $5, $5     # 0x4
+ADD $2, $5, $5    # 0x8
+HALT $0
+
+T2
+I@0x00000000
+LOAD $5, $0, 0x32A0  # 0x0
+ADDI $7, $5, 5    # 0x4
+ADD $2, $5, $5    # 0x8
+HALT $0
+
+# Data for this program. Any other location that is not explicitly set is implicitly set to zero.
+# All the threads share the same memory space
+D@0x000032A0
+0x4
+0x10
+
