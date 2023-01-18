@@ -55,8 +55,7 @@ public:
     int switchOverhead;
 
     BlockCore(int threadsSize, thread *threads, int cycles, int instructions) : MT_core(threadsSize, threads, cycles,
-                                                                                        instructions) // CPI will be calculated based on this)) : loadLatency(SIM_GetLoadLat()){
-    {
+                                                                                        instructions) {
         switchOverhead = SIM_GetSwitchCycles(); // relevant only for BLOCK
         cout << "block constructed" << endl;
     }
