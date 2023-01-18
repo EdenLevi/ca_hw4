@@ -37,7 +37,7 @@ int SIM_MemFree();
  */
 int SIM_MemReset(const char *memImgFname);
 
-/*! SIM_ReadDataMem: Read data from main memory simulator
+/*! SIM_MemDataRead: Read data from main memory simulator
   \param[in] addr The memory location to read.
                   Note that while we read 32 bit data words, addressing is per byte, i.e., the address must be aligned to 4.
   \param[out] dst The destination location to read into
@@ -50,7 +50,7 @@ void SIM_MemDataRead(uint32_t addr, int32_t *dst);
 */
 void SIM_MemDataWrite(uint32_t addr, int32_t val);
 
-/*! SIM_ReadInstMem: Read instruction from main memory simulator
+/*! SIM_MemInstRead: Read instruction from main memory simulator
   \param[in] addr The memory location to read.
                   Note that while we read 32 bit data words, addressing is per byte, i.e., the address must be aligned to 4.
   \param[out] dst The destination location to read into
