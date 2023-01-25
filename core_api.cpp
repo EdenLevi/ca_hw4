@@ -13,8 +13,9 @@ public:
     bool finished;
     tcontext *registers;
     int currInst;
+    int idleTimer;
 
-    thread() : finished(false), currInst(0) {
+    thread() : finished(false), currInst(0), idleTimer(0) {
 
         cout << "thread constructed" << endl;
 
@@ -188,54 +189,101 @@ void CORE_FinegrainedMT() {
 
     while (true) {
         bool stillAlive = false;
+        bool allWaiting = true;
         for (int i = 0; i < fineGrained->threadsSize; i++) {
             if (fineGrained->threads[i].finished) {
                 continue;
             } else {
                 stillAlive = true;
 
-                SIM_MemInstRead(fineGrained->threads[i].currInst, &inst, i);
-                int SIM_MemDataRead_ReturnValue = 0;
+                if(fineGrained->threads[i].idleTimer == 0) { // if idle timer is 0, perform next instruction
 
-                switch(inst.opcode) {
-                    case CMD_NOP:
-                        /// fineGrained->cycles++;
-                        break;
-                    case CMD_ADD:
-                        fineGrained->cycles++;
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
-                        break;
-                    case CMD_SUB:
-                        fineGrained->cycles++;
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] - (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
-                        break;
-                    case CMD_ADDI:
-                        fineGrained->cycles++;
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
-                        break;
-                    case CMD_SUBI:
-                        fineGrained->cycles++;
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] - (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
-                        break;
-                    case CMD_LOAD:
-                        fineGrained->cycles += fineGrained->loadLatency + 1;
-                        SIM_MemDataRead(inst.src1_index + inst.src2_index_imm, &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
-                        break;
-                    case CMD_STORE:
-                        fineGrained->cycles += fineGrained->storeLatency + 1;
-                        SIM_MemDataRead_ReturnValue = fineGrained->threads[i].registers->reg[inst.src1_index];
-                        SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm, SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
-                        break;
-                    case CMD_HALT:
-                        //fineGrained->cycles++; /// maybe shouldnt happen
-                        fineGrained->threads[i].finished = true;
-                        break;
+                    allWaiting = false;
+
+                    SIM_MemInstRead(fineGrained->threads[i].currInst, &inst, i);
+                    int SIM_MemDataRead_ReturnValue = 0;
+
+                    switch (inst.opcode) {
+                        case CMD_NOP:
+                            /// fineGrained->cycles++;
+                            break;
+                        case CMD_ADD:
+                            fineGrained->threads[i].idleTimer++;
+                            fineGrained->threads[i].registers->reg[inst.dst_index] =
+                                    fineGrained->threads[i].registers->reg[inst.src1_index] +
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_SUB:
+                            fineGrained->threads[i].idleTimer++;
+                            fineGrained->threads[i].registers->reg[inst.dst_index] =
+                                    fineGrained->threads[i].registers->reg[inst.src1_index] -
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_ADDI:
+                            fineGrained->threads[i].idleTimer++;
+                            fineGrained->threads[i].registers->reg[inst.dst_index] =
+                                    fineGrained->threads[i].registers->reg[inst.src1_index] +
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_SUBI:
+                            fineGrained->threads[i].idleTimer++;
+                            fineGrained->threads[i].registers->reg[inst.dst_index] =
+                                    fineGrained->threads[i].registers->reg[inst.src1_index] -
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_LOAD:
+                            fineGrained->threads[i].idleTimer += fineGrained->loadLatency + 1;
+                            SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
+                                            &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                            fineGrained->threads[i].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
+                            break;
+                        case CMD_STORE:
+                            fineGrained->threads[i].idleTimer += fineGrained->storeLatency + 1;
+                            SIM_MemDataRead_ReturnValue = fineGrained->threads[i].registers->reg[inst.src1_index];
+                            SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
+                                             SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
+                            break;
+                        case CMD_HALT:
+                            fineGrained->threads[i].idleTimer++;
+                            fineGrained->threads[i].finished = true;
+
+                            bool allHalted = true;
+                            for(int i = 0; i < fineGrained->threadsSize; i++) {
+                                allHalted = fineGrained->threads[i].finished;
+                            }
+                            if(allHalted) {
+                                fineGrained->instructions++;
+                                fineGrained->cycles++;
+                                return;
+                            }
+
+                            break;
+                    }
+                    fineGrained->instructions++;
+                    fineGrained->threads[i].currInst++;
+                    fineGrained->cycles++;
+                    cout << "OPCODE: " << inst.opcode << endl;
+
+
+                    for(int i = 0; i < fineGrained->threadsSize; i++) {
+                        fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer-1, 0);
+                    }
                 }
-                fineGrained->instructions++;
-                fineGrained->threads[i].currInst++;
             }
         }
+
+        if(allWaiting)  {
+            fineGrained->cycles++;
+            for(int i = 0; i < fineGrained->threadsSize; i++) {
+                fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer-1, 0);
+            }
+            cout << "OPCODE: " << inst.opcode << " (all done)" << endl;
+        }
+
         // end if all threads are finished
         if (!stillAlive) break;
     }
