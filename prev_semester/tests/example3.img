@@ -1,0 +1,16 @@
+L12
+S1
+O1
+N1
+
+T0 
+I@0x00000000
+LOAD $1, $0, 0x32A0
+HALT $0
+
+# Data for this program. Any other location that is not explicitly set is implicitly set to zero.
+# All the threads share the same memory space
+D@0x000032A0
+0x4
+0x10
+

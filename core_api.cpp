@@ -17,8 +17,6 @@ public:
 
     thread() : finished(false), currInst(0), idleTimer(0) {
 
-        cout << "thread constructed" << endl;
-
         registers = new tcontext();
 
         for (int i = 0; i < REGS_COUNT; i++) {
@@ -45,13 +43,9 @@ public:
         storeLatency = SIM_GetStoreLat();
 
         threads = new thread[threadsSize];
-        cout << "MT_core constructed" << endl;
     }
 
-    virtual ~MT_core() {
-        delete[] threads;
-        cout << "MT_core destructed" << endl;
-    }
+    virtual ~MT_core() {}
 
     virtual void load() = 0;
 
@@ -75,11 +69,9 @@ public:
 
     BlockCore(int threadsSize) : MT_core(threadsSize) {
         switchOverhead = SIM_GetSwitchCycles(); // relevant only for BLOCK
-        cout << "block constructed" << endl;
     }
 
     ~BlockCore() {
-        cout << "block destructed" << endl;
         delete[] threads;
     }
 
@@ -114,12 +106,9 @@ public:
 
 class FineGrainedCore : virtual public MT_core {
 public:
-    FineGrainedCore(int threadsSize) : MT_core(threadsSize) {
-        cout << "fine grained constructed" << endl;
-    }
+    FineGrainedCore(int threadsSize) : MT_core(threadsSize) {}
 
     ~FineGrainedCore() {
-        cout << "fine grained destructed" << endl;
         delete[] threads;
     }
 
@@ -161,7 +150,6 @@ void CORE_BlockedMT() {
 
     block = new BlockCore(SIM_GetThreadsNum());
 
-    cout << block->threadsSize << endl;
     int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = -1, liveThreads = block->threadsSize;
     bool recentlyHalted = false;
     while (liveThreads) {
@@ -224,8 +212,6 @@ void CORE_BlockedMT() {
             block->threads[currentThread].currInst++;
             block->instructions++;
             block->cycles++;
-            cout << "OPCODE: " << inst.opcode << endl;
-
 
             for (int i = 0; i < block->threadsSize; i++) {
                 block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - 1);
@@ -258,15 +244,11 @@ void CORE_BlockedMT() {
                     block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - block->switchOverhead);
                 }
                 block->cycles += block->switchOverhead;
-                for (int i = 0; i < block->switchOverhead; i++) {
-                    cout << "OPCODE: " << inst.opcode << " (ctx switch) " << previousThread << "->" << currentThread << endl;
-                }
             } else { /// all are waiting
                 block->cycles++;
                 for (int i = 0; i < block->threadsSize; i++) {
                     block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - 1);
                 }
-                cout << "OPCODE: " << inst.opcode << " (all idle)" << endl;
             }
             recentlyHalted = false;
         }
@@ -356,7 +338,6 @@ void CORE_FinegrainedMT() {
                     fineGrained->instructions++;
                     fineGrained->threads[i].currInst++;
                     fineGrained->cycles++;
-                    cout << "OPCODE: " << inst.opcode << endl;
 
 
                     for (int i = 0; i < fineGrained->threadsSize; i++) {
@@ -371,7 +352,6 @@ void CORE_FinegrainedMT() {
             for (int i = 0; i < fineGrained->threadsSize; i++) {
                 fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer - 1, 0);
             }
-            cout << "OPCODE: " << inst.opcode << " (all done)" << endl;
         }
 
         // end if all threads are finished
@@ -381,17 +361,13 @@ void CORE_FinegrainedMT() {
 
 double CORE_BlockedMT_CPI() {
     double BlockedMT_CPI = block->instructions ? (double) block->cycles / (double) block->instructions : 0;
-
-    //delete block;
+    delete block;
     return BlockedMT_CPI;
 }
 
 double CORE_FinegrainedMT_CPI() {
-    cout << "FinegrainedMT_CPI = " << fineGrained->cycles << " / " << fineGrained->instructions << endl;
-    double FinegrainedMT_CPI = fineGrained->instructions ? (double) fineGrained->cycles /
-                                                           (double) fineGrained->instructions : 0;
-
-    //delete fineGrained;
+    double FinegrainedMT_CPI = fineGrained->instructions ? (double) fineGrained->cycles / (double) fineGrained->instructions : 0;
+    delete fineGrained;
     return FinegrainedMT_CPI;
 }
 
@@ -403,8 +379,6 @@ void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
     for (int i = 0; i < REGS_COUNT; i++) {
-        //cout << "reg[" << i << "]: " << fineGrained->threads[threadid].registers->reg[i] << endl;
-        //context->reg[i] = fineGrained->threads[threadid].registers->reg[i];
         context[threadid].reg[i] = fineGrained->threads[threadid].registers->reg[i];
     }
 }

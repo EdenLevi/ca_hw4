@@ -1,0 +1,40 @@
+L3 #load latency
+S4 #store latency
+O1 #overhead for switch
+N3  #there is three threads that run 
+
+T0
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADD $2, $1, $1
+STORE $2, $2, 0x32A0
+LOAD $3, $2, 0x32A0
+HALT $0
+
+T1
+I@0x00000000
+LOAD $1, $0, 0x32A4
+ADD $1, $3, $3
+LOAD $2, $0, 0x32A4
+ADD $3, $2, $1
+ADD $1, $3, $3
+HALT $0
+
+T2 
+I@0x00000000
+LOAD $5, $0, 0x32A8
+ADD $2, $1, $1
+ADD $2, $2, $2
+STORE $2, $2, 0x32A8
+ADD $2, $1, $2
+LOAD $3, $2, 0x32AC
+ADD $2, $1, $2
+HALT $0
+
+
+# Data for this program. Any other location that is not explicitly set is implicitly set to zero.
+D@0x000032A0
+0x2
+0x4
+0x6
+0x8

@@ -1,0 +1,81 @@
+# The instructions are:
+# 	NOP
+#	ADD,ADDI $dst, $src1, $src2 		(dst <- src1 + src2)
+#	SUB,SUBI $dst, $src1, $src2 		(dst <- src1 - src2)
+#	LOAD $dst, $src1, $src2 	(dst <- Mem[src1 + src2]  src2 may be an immediate)
+#	STORE $dst, $src1, $src2 	(Mem[dst + src2] <- src1  src2 may be an immediate)
+
+L1  # load latency
+S1  # store latency
+O4  # overhead for switch
+N8  # there is three threads that run 
+
+T0 
+I@0x00000000 
+LOAD $5, $0, 0x32A0   
+ADDI $3, $5, 5        
+ADD $4, $5, $5        
+ADD $2, $4, $5        
+HALT $0
+
+T1
+I@0x00000000
+LOAD $5, $0, 0x32A0  
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T2
+I@0x00000000
+LOAD $5, $0, 0x32A0  
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T3
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T4
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T5
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T6
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+T7
+I@0x00000000
+LOAD $5, $0, 0x32A0
+ADDI $3, $5, 5       
+ADD $4, $5, $5       
+ADD $2, $4, $5       
+HALT $0
+
+D@0x000032A0
+0x4
+0x1
+-8
+
