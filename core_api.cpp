@@ -234,12 +234,11 @@ void CORE_BlockedMT() {
                 for (int j = 0; (!foundReadyThread) && j < block->threadsSize; j++) {
                     if (block->threads[(currentThread + j) % (block->threadsSize)].idleTimer ==
                         0) { /// found a ready thread
-                        if (foundReadyThread == false) nextThread = currentThread + (currentThread + j) % (block->threadsSize);
+                        if (foundReadyThread == false) nextThread = currentThread +
+                                                                    (currentThread + j) % (block->threadsSize);
                         foundReadyThread = true;
                     }
                 }
-
-
 
 
             }
