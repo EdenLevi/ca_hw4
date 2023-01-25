@@ -21,7 +21,7 @@ public:
 
         registers = new tcontext();
 
-        for(int i = 0; i < REGS_COUNT; i++) {
+        for (int i = 0; i < REGS_COUNT; i++) {
             registers->reg[i] = 0;
         }
     }
@@ -152,8 +152,8 @@ public:
     }
 };
 
-BlockCore* block;
-FineGrainedCore* fineGrained;
+BlockCore *block;
+FineGrainedCore *fineGrained;
 Instruction inst;
 
 // run a simulation of BlockCore
@@ -162,24 +162,92 @@ void CORE_BlockedMT() {
     block = new BlockCore(SIM_GetThreadsNum());
 
     cout << block->threadsSize << endl;
+    int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = 0, liveThreads = block->threadsSize;
+    while (liveThreads) {
+        cout << "WE ARE HERE\n";
+        if (block->threads[currentThread].finished) {
+            currentThread = (currentThread + 1) % block->threadsSize;
+            continue;
+        } else { /// current thread is alive
+            if (block->threads[currentThread].idleTimer != 0) { /// current thread isn't waiting
+                if (block->threads[currentThread].idleTimer != 0) {
+                    SIM_MemInstRead(block->threads[currentThread].currInst, &inst, currentThread);
 
-    while (true) {
-        break; /// temp
-        bool stillAlive = false;
-        for (int i = 0; i < block->threadsSize; i++) {
-            if (block->threads[i].finished) {
-                continue;
-            } else {
-                stillAlive = true;
-                block->instructions++;
+                    switch (inst.opcode) {
+                        case CMD_NOP:
+                            /// block->cycles++;
+                            break;
+                        case CMD_ADD:
+                            block->threads[currentThread].idleTimer++;
+                            block->threads[currentThread].registers->reg[inst.dst_index] =
+                                    block->threads[currentThread].registers->reg[inst.src1_index] +
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_SUB:
+                            block->threads[currentThread].idleTimer++;
+                            block->threads[currentThread].registers->reg[inst.dst_index] =
+                                    block->threads[currentThread].registers->reg[inst.src1_index] -
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_ADDI:
+                            block->threads[currentThread].idleTimer++;
+                            block->threads[currentThread].registers->reg[inst.dst_index] =
+                                    block->threads[currentThread].registers->reg[inst.src1_index] +
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_SUBI:
+                            block->threads[currentThread].idleTimer++;
+                            block->threads[currentThread].registers->reg[inst.dst_index] =
+                                    block->threads[currentThread].registers->reg[inst.src1_index] -
+                                    (inst.isSrc2Imm ? inst.src2_index_imm
+                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                            break;
+                        case CMD_LOAD:
+                            block->threads[currentThread].idleTimer += fineGrained->loadLatency + 1;
+                            SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
+                                            &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                            block->threads[currentThread].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
+                            break;
+                        case CMD_STORE:
+                            block->threads[currentThread].idleTimer += fineGrained->storeLatency + 1;
+                            SIM_MemDataRead_ReturnValue = block->threads[currentThread].registers->reg[inst.src1_index];
+                            SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
+                                             SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
+                            break;
+                        case CMD_HALT:
+                            block->threads[currentThread].idleTimer++;
+                            block->threads[currentThread].finished = true;
+
+                            bool allHalted = true;
+                            for (int i = 0; i < block->threadsSize; i++) {
+                                allHalted = block->threads[i].finished;
+                            }
+                            if (allHalted) {
+                                block->instructions++;
+                                block->cycles++;
+                                return;
+                            }
+
+                            break;
+                    }
+                }
+
+                liveThreads--;
+
+
+            } else { /// current thread is waiting
+                for (int j = 0; j < block->threadsSize; j++) {
+                    bool foundReadyThread = false;
+
+                    if (block->threads[(currentThread + j) % (block->threadsSize)].idleTimer == 0) { /// found a ready thread
+                        foundReadyThread = true;
+                    }
+                }
             }
-
-            /// do stuff here
-
-            /// *************
         }
-        // end if all threads are finished
-        if (!stillAlive) break;
     }
 }
 
@@ -196,7 +264,7 @@ void CORE_FinegrainedMT() {
             } else {
                 stillAlive = true;
 
-                if(fineGrained->threads[i].idleTimer == 0) { // if idle timer is 0, perform next instruction
+                if (fineGrained->threads[i].idleTimer == 0) { // if idle timer is 0, perform next instruction
 
                     allWaiting = false;
 
@@ -252,10 +320,10 @@ void CORE_FinegrainedMT() {
                             fineGrained->threads[i].finished = true;
 
                             bool allHalted = true;
-                            for(int i = 0; i < fineGrained->threadsSize; i++) {
+                            for (int i = 0; i < fineGrained->threadsSize; i++) {
                                 allHalted = fineGrained->threads[i].finished;
                             }
-                            if(allHalted) {
+                            if (allHalted) {
                                 fineGrained->instructions++;
                                 fineGrained->cycles++;
                                 return;
@@ -269,17 +337,17 @@ void CORE_FinegrainedMT() {
                     cout << "OPCODE: " << inst.opcode << endl;
 
 
-                    for(int i = 0; i < fineGrained->threadsSize; i++) {
-                        fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer-1, 0);
+                    for (int i = 0; i < fineGrained->threadsSize; i++) {
+                        fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer - 1, 0);
                     }
                 }
             }
         }
 
-        if(allWaiting)  {
+        if (allWaiting) {
             fineGrained->cycles++;
-            for(int i = 0; i < fineGrained->threadsSize; i++) {
-                fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer-1, 0);
+            for (int i = 0; i < fineGrained->threadsSize; i++) {
+                fineGrained->threads[i].idleTimer = max(fineGrained->threads[i].idleTimer - 1, 0);
             }
             cout << "OPCODE: " << inst.opcode << " (all done)" << endl;
         }
@@ -298,20 +366,21 @@ double CORE_BlockedMT_CPI() {
 
 double CORE_FinegrainedMT_CPI() {
     cout << "FinegrainedMT_CPI = " << fineGrained->cycles << " / " << fineGrained->instructions << endl;
-    double FinegrainedMT_CPI = fineGrained->instructions ? (double)fineGrained->cycles / (double)fineGrained->instructions : 0;
+    double FinegrainedMT_CPI = fineGrained->instructions ? (double) fineGrained->cycles /
+                                                           (double) fineGrained->instructions : 0;
 
     //delete fineGrained;
     return FinegrainedMT_CPI;
 }
 
 void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
-    for(int i = 0; i < REGS_COUNT; i++) {
+    for (int i = 0; i < REGS_COUNT; i++) {
         context->reg[i] = block->threads[threadid].registers->reg[i];
     }
 }
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
-    for(int i = 0; i < REGS_COUNT; i++) {
+    for (int i = 0; i < REGS_COUNT; i++) {
         //cout << "reg[" << i << "]: " << fineGrained->threads[threadid].registers->reg[i] << endl;
         //context->reg[i] = fineGrained->threads[threadid].registers->reg[i];
         context[threadid].reg[i] = fineGrained->threads[threadid].registers->reg[i];
