@@ -163,85 +163,112 @@ void CORE_BlockedMT() {
 
     cout << block->threadsSize << endl;
     int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = -1, liveThreads = block->threadsSize;
+    bool recentlyHalted = false;
     while (liveThreads) {
-        cout << "WE ARE HERE\n";
-        if (block->threads[currentThread].finished) {
-            currentThread = (currentThread + 1) % block->threadsSize;
-            continue;
-        } else { /// current thread is alive
-            if (block->threads[currentThread].idleTimer != 0) { /// current thread isn't waiting
-                if (block->threads[currentThread].idleTimer != 0) {
-                    SIM_MemInstRead(block->threads[currentThread].currInst, &inst, currentThread);
+        if (!recentlyHalted && !block->threads[currentThread].finished && block->threads[currentThread].idleTimer == 0) { /// current thread isn't waiting
+            SIM_MemInstRead(block->threads[currentThread].currInst, &inst, currentThread);
 
-                    switch (inst.opcode) {
-                        case CMD_NOP:
-                            /// block->cycles++;
-                            break;
-                        case CMD_ADD:
-                            block->threads[currentThread].idleTimer++;
-                            block->threads[currentThread].registers->reg[inst.dst_index] =
-                                    block->threads[currentThread].registers->reg[inst.src1_index] +
-                                    (inst.isSrc2Imm ? inst.src2_index_imm
-                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
-                            break;
-                        case CMD_SUB:
-                            block->threads[currentThread].idleTimer++;
-                            block->threads[currentThread].registers->reg[inst.dst_index] =
-                                    block->threads[currentThread].registers->reg[inst.src1_index] -
-                                    (inst.isSrc2Imm ? inst.src2_index_imm
-                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
-                            break;
-                        case CMD_ADDI:
-                            block->threads[currentThread].idleTimer++;
-                            block->threads[currentThread].registers->reg[inst.dst_index] =
-                                    block->threads[currentThread].registers->reg[inst.src1_index] +
-                                    (inst.isSrc2Imm ? inst.src2_index_imm
-                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
-                            break;
-                        case CMD_SUBI:
-                            block->threads[currentThread].idleTimer++;
-                            block->threads[currentThread].registers->reg[inst.dst_index] =
-                                    block->threads[currentThread].registers->reg[inst.src1_index] -
-                                    (inst.isSrc2Imm ? inst.src2_index_imm
-                                                    : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
-                            break;
-                        case CMD_LOAD:
-                            block->threads[currentThread].idleTimer += fineGrained->loadLatency + 1;
-                            SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
-                                            &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
-                            block->threads[currentThread].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
-                            break;
-                        case CMD_STORE:
-                            block->threads[currentThread].idleTimer += fineGrained->storeLatency + 1;
-                            SIM_MemDataRead_ReturnValue = block->threads[currentThread].registers->reg[inst.src1_index];
-                            SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
-                                             SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
-                            break;
-                        case CMD_HALT:
-                            block->threads[currentThread].idleTimer++;
-                            block->threads[currentThread].finished = true;
+            switch (inst.opcode) {
+                case CMD_NOP:
+                    /// block->cycles++;
+                    break;
+                case CMD_ADD:
+                    block->threads[currentThread].idleTimer++;
+                    block->threads[currentThread].registers->reg[inst.dst_index] =
+                            block->threads[currentThread].registers->reg[inst.src1_index] +
+                            (inst.isSrc2Imm ? inst.src2_index_imm
+                                            : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                    break;
+                case CMD_SUB:
+                    block->threads[currentThread].idleTimer++;
+                    block->threads[currentThread].registers->reg[inst.dst_index] =
+                            block->threads[currentThread].registers->reg[inst.src1_index] -
+                            (inst.isSrc2Imm ? inst.src2_index_imm
+                                            : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                    break;
+                case CMD_ADDI:
+                    block->threads[currentThread].idleTimer++;
+                    block->threads[currentThread].registers->reg[inst.dst_index] =
+                            block->threads[currentThread].registers->reg[inst.src1_index] +
+                            (inst.isSrc2Imm ? inst.src2_index_imm
+                                            : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                    break;
+                case CMD_SUBI:
+                    block->threads[currentThread].idleTimer++;
+                    block->threads[currentThread].registers->reg[inst.dst_index] =
+                            block->threads[currentThread].registers->reg[inst.src1_index] -
+                            (inst.isSrc2Imm ? inst.src2_index_imm
+                                            : block->threads[currentThread].registers->reg[inst.src2_index_imm]);
+                    break;
+                case CMD_LOAD:
+                    block->threads[currentThread].idleTimer += block->loadLatency + 1;
+                    SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
+                                    &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                    block->threads[currentThread].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
+                    break;
+                case CMD_STORE:
+                    block->threads[currentThread].idleTimer += block->storeLatency + 1;
+                    SIM_MemDataRead_ReturnValue = block->threads[currentThread].registers->reg[inst.src1_index];
+                    SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
+                                     SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
+                    break;
+                case CMD_HALT:
+                    block->threads[currentThread].idleTimer++;
+                    block->threads[currentThread].finished = true;
 
-                            bool allHalted = true; /// not needed
-                            liveThreads--;
-                            break;
-                    }
-
-                }
-
-
-            } else { /// current thread is waiting
-                bool foundReadyThread = false;
-                for (int j = 0; (!foundReadyThread) && j < block->threadsSize; j++) {
-                    if (block->threads[(currentThread + j) % (block->threadsSize)].idleTimer ==
-                        0) { /// found a ready thread
-                        if (foundReadyThread == false) nextThread = currentThread +
-                                                                    (currentThread + j) % (block->threadsSize);
-                        foundReadyThread = true;
-                    }
-                }
-
-
+                    bool allHalted = true; /// not needed
+                    liveThreads--;
+                    recentlyHalted = true;
+                    break;
             }
+            block->threads[currentThread].currInst++;
+            block->instructions++;
+            block->cycles++;
+            cout << "OPCODE: " << inst.opcode << endl;
+
+
+            for (int i = 0; i < block->threadsSize; i++) {
+                block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - 1);
+            }
+
+
+        } else { /// current thread is waiting
+            bool foundReadyThread = false;
+
+            int next_index = currentThread;
+            while(true) {
+                next_index++;
+                if(next_index >= block->threadsSize) next_index = 0;
+
+                if(next_index == currentThread) break;
+
+                if(!block->threads[next_index].finished && !block->threads[next_index].idleTimer) {
+                    if(!foundReadyThread) nextThread = next_index;
+                    foundReadyThread = true;
+                }
+            }
+
+            /// context switch
+            if (foundReadyThread && (block->threads[currentThread].idleTimer || block->threads[currentThread].finished)) {
+                previousThread = currentThread;
+                currentThread = nextThread;
+
+                /// reduce waiting time by switch overhead
+                for (int i = 0; i < block->threadsSize; i++) {
+                    block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - block->switchOverhead);
+                }
+                block->cycles += block->switchOverhead;
+                for (int i = 0; i < block->switchOverhead; i++) {
+                    cout << "OPCODE: " << inst.opcode << " (ctx switch) " << previousThread << "->" << currentThread << endl;
+                }
+            } else { /// all are waiting
+                block->cycles++;
+                for (int i = 0; i < block->threadsSize; i++) {
+                    block->threads[i].idleTimer = max(0, block->threads[i].idleTimer - 1);
+                }
+                cout << "OPCODE: " << inst.opcode << " (all idle)" << endl;
+            }
+            recentlyHalted = false;
         }
     }
 }
@@ -353,7 +380,7 @@ void CORE_FinegrainedMT() {
 }
 
 double CORE_BlockedMT_CPI() {
-    double BlockedMT_CPI = block->instructions ? block->cycles / block->instructions : 0;
+    double BlockedMT_CPI = block->instructions ? (double) block->cycles / (double) block->instructions : 0;
 
     //delete block;
     return BlockedMT_CPI;
@@ -370,7 +397,7 @@ double CORE_FinegrainedMT_CPI() {
 
 void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
     for (int i = 0; i < REGS_COUNT; i++) {
-        context->reg[i] = block->threads[threadid].registers->reg[i];
+        context[threadid].reg[i] = block->threads[threadid].registers->reg[i];
     }
 }
 
