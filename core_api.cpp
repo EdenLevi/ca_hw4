@@ -133,23 +133,21 @@ public:
     }
 };
 
-BlockCore block = BlockCore();
+BlockCore block = BlockCore(SIM_GetThreadsNum(), nullptr, SIM_GetSwitchCycles(), 0); // (int threadsSize, thread *threads, int cycles, int instructions)
 FineGrainedCore fineGrained = FineGrainedCore();
 
 // run a simulation of BlockCore
 void CORE_BlockedMT() {
     while (true) {
         bool stillAlive = false;
-
-        // current_thread = fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize]
         for (int i = 0; i < block.threadsSize; i++) {
-            if (fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize].finished) {
+            if (block.threads[(block.RR + i) % block.threadsSize].finished) {
                 continue;
-            }
-            stillAlive = true;
-            // do stuff with the thread casue its not finished
+            } else stillAlive = true;
 
+            /// do stuff here
 
+            /// *************
         }
         // end if all threads are finished
         if (!stillAlive) break;
@@ -162,11 +160,14 @@ void CORE_FinegrainedMT() {
         for (int i = 0; i < fineGrained.threadsSize; i++) {
             if (fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize].finished) {
                 continue;
-            } else stillAlive = true;
+            } else {
+                stillAlive = true;
+                fineGrained.instructions++;
+            }
 
             /// do stuff here
 
-
+            /// *************
         }
         // end if all threads are finished
         if (!stillAlive) break;
@@ -176,6 +177,7 @@ void CORE_FinegrainedMT() {
 double CORE_BlockedMT_CPI() {
     double BlockedMT_CPI = block.cycles / block.instructions;
 
+    // can release memory here
     return BlockedMT_CPI;
 }
 
@@ -190,4 +192,7 @@ void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
 }
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
+    for(int i = 0; i < REGS_COUNT; i++) {
+        context[i] = fineGrained.threads[threadid].registers[i];
+    }
 }
