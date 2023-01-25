@@ -2,9 +2,7 @@
 
 #include "core_api.h"
 #include "sim_api.h"
-#include <stdio.h>
 #include <string>
-#include <iostream>
 
 using namespace std;
 
@@ -47,20 +45,6 @@ public:
 
     virtual ~MT_core() {}
 
-    virtual void load() = 0;
-
-    virtual void store() = 0;
-
-    virtual void add() = 0;
-
-    virtual void addi() = 0;
-
-    virtual void sub() = 0;
-
-    virtual void subi() = 0;
-
-    virtual void contextSwitch() = 0;
-
 };
 
 class BlockCore : virtual public MT_core {
@@ -74,34 +58,6 @@ public:
     ~BlockCore() {
         delete[] threads;
     }
-
-    virtual void load() {
-
-    }
-
-    virtual void store() {
-
-    }
-
-    virtual void add() {
-
-    }
-
-    virtual void addi() {
-
-    }
-
-    virtual void sub() {
-
-    }
-
-    virtual void subi() {
-
-    }
-
-    virtual void contextSwitch() {
-
-    }
 };
 
 class FineGrainedCore : virtual public MT_core {
@@ -110,34 +66,6 @@ public:
 
     ~FineGrainedCore() {
         delete[] threads;
-    }
-
-    void load() {
-
-    }
-
-    virtual void store() {
-
-    }
-
-    virtual void add() {
-
-    }
-
-    virtual void addi() {
-
-    }
-
-    virtual void sub() {
-
-    }
-
-    virtual void subi() {
-
-    }
-
-    virtual void contextSwitch() {
-
     }
 };
 
@@ -158,7 +86,7 @@ void CORE_BlockedMT() {
 
             switch (inst.opcode) {
                 case CMD_NOP:
-                    /// block->cycles++;
+                    /// do nothing
                     break;
                 case CMD_ADD:
                     block->threads[currentThread].idleTimer++;
@@ -190,15 +118,13 @@ void CORE_BlockedMT() {
                     break;
                 case CMD_LOAD:
                     block->threads[currentThread].idleTimer += block->loadLatency + 1;
-                    SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
-                                    &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                    SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,&SIM_MemDataRead_ReturnValue);
                     block->threads[currentThread].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
                     break;
                 case CMD_STORE:
                     block->threads[currentThread].idleTimer += block->storeLatency + 1;
                     SIM_MemDataRead_ReturnValue = block->threads[currentThread].registers->reg[inst.src1_index];
-                    SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
-                                     SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
+                    SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,SIM_MemDataRead_ReturnValue);
                     break;
                 case CMD_HALT:
                     block->threads[currentThread].idleTimer++;
@@ -266,7 +192,7 @@ void CORE_FinegrainedMT() {
             } else {
                 stillAlive = true;
 
-                if (fineGrained->threads[i].idleTimer == 0) { // if idle timer is 0, perform next instruction
+                if (fineGrained->threads[i].idleTimer == 0) { /// if idle timer is 0, perform next instruction
 
                     allWaiting = false;
 
@@ -275,7 +201,7 @@ void CORE_FinegrainedMT() {
 
                     switch (inst.opcode) {
                         case CMD_NOP:
-                            /// fineGrained->cycles++;
+                            /// do nothing
                             break;
                         case CMD_ADD:
                             fineGrained->threads[i].idleTimer++;
@@ -308,14 +234,14 @@ void CORE_FinegrainedMT() {
                         case CMD_LOAD:
                             fineGrained->threads[i].idleTimer += fineGrained->loadLatency + 1;
                             SIM_MemDataRead(inst.src1_index + inst.src2_index_imm,
-                                            &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                                            &SIM_MemDataRead_ReturnValue);
                             fineGrained->threads[i].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
                             break;
                         case CMD_STORE:
                             fineGrained->threads[i].idleTimer += fineGrained->storeLatency + 1;
                             SIM_MemDataRead_ReturnValue = fineGrained->threads[i].registers->reg[inst.src1_index];
                             SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm,
-                                             SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
+                                             SIM_MemDataRead_ReturnValue);
                             break;
                         case CMD_HALT:
                             fineGrained->threads[i].idleTimer++;
