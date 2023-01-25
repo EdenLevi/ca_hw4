@@ -150,7 +150,7 @@ void CORE_BlockedMT() {
 
     block = new BlockCore(SIM_GetThreadsNum());
 
-    int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = -1, liveThreads = block->threadsSize;
+    int SIM_MemDataRead_ReturnValue, currentThread = 0, nextThread = -1, liveThreads = block->threadsSize;
     bool recentlyHalted = false;
     while (liveThreads) {
         if (!recentlyHalted && !block->threads[currentThread].finished && block->threads[currentThread].idleTimer == 0) { /// current thread isn't waiting
@@ -204,7 +204,6 @@ void CORE_BlockedMT() {
                     block->threads[currentThread].idleTimer++;
                     block->threads[currentThread].finished = true;
 
-                    bool allHalted = true; /// not needed
                     liveThreads--;
                     recentlyHalted = true;
                     break;
@@ -236,7 +235,6 @@ void CORE_BlockedMT() {
 
             /// context switch
             if (foundReadyThread && (block->threads[currentThread].idleTimer || block->threads[currentThread].finished)) {
-                previousThread = currentThread;
                 currentThread = nextThread;
 
                 /// reduce waiting time by switch overhead
