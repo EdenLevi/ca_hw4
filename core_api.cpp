@@ -182,13 +182,16 @@ double CORE_BlockedMT_CPI() {
 }
 
 double CORE_FinegrainedMT_CPI() {
-    double FinegrainedMT = block.cycles / block.instructions;
+    double FinegrainedMT_CPI = block.cycles / block.instructions;
 
-    return FinegrainedMT;
+    // can release memory here
+    return FinegrainedMT_CPI;
 }
 
 void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
-
+    for(int i = 0; i < REGS_COUNT; i++) {
+        context[i] = block.threads[threadid].registers[i];
+    }
 }
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
