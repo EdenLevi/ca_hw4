@@ -342,6 +342,7 @@ double CORE_BlockedMT_CPI(){
 
 double CORE_FinegrainedMT_CPI(){
     delete regsThreadsFineGlobal;
+    std::cout << "FinegrainedMT_CPI = " << cyclesFinedGlobal << " / " << operationsFinedGlobal << std::endl;
     return (double)cyclesFinedGlobal/(double)operationsFinedGlobal;
 }
 

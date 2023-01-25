@@ -343,7 +343,7 @@ void CORE_FinegrainedMT() {
 
                             bool allHalted = true;
                             for (int i = 0; i < fineGrained->threadsSize; i++) {
-                                allHalted = fineGrained->threads[i].finished;
+                                allHalted = allHalted && fineGrained->threads[i].finished;
                             }
                             if (allHalted) {
                                 fineGrained->instructions++;
