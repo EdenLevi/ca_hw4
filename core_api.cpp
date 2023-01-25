@@ -160,7 +160,10 @@ void CORE_BlockedMT() {
 
     block = new BlockCore(SIM_GetThreadsNum());
 
+    cout << block->threadsSize << endl;
+
     while (true) {
+        break; /// temp
         bool stillAlive = false;
         for (int i = 0; i < block->threadsSize; i++) {
             if (block->threads[i].finished) {
@@ -192,31 +195,45 @@ void CORE_FinegrainedMT() {
                 stillAlive = true;
 
                 SIM_MemInstRead(fineGrained->threads[i].currInst, &inst, i);
+                int SIM_MemDataRead_ReturnValue = 0;
+
                 switch(inst.opcode) {
                     case CMD_NOP:
-                        fineGrained->cycles++;
+                        /// fineGrained->cycles++;
                         break;
                     case CMD_ADD:
                         fineGrained->cycles++;
-                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + fineGrained->threads[i].registers->reg[inst.src2_index_imm];
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
                         break;
                     case CMD_SUB:
+                        fineGrained->cycles++;
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] - (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
                         break;
                     case CMD_ADDI:
+                        fineGrained->cycles++;
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
                         break;
                     case CMD_SUBI:
+                        fineGrained->cycles++;
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] - (inst.isSrc2Imm ? inst.src2_index_imm : fineGrained->threads[i].registers->reg[inst.src2_index_imm]);
                         break;
                     case CMD_LOAD:
                         fineGrained->cycles += fineGrained->loadLatency + 1;
+                        SIM_MemDataRead(inst.src1_index + inst.src2_index_imm, &SIM_MemDataRead_ReturnValue); /// shouldn't this be the register value and not the index?
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = SIM_MemDataRead_ReturnValue;
                         break;
                     case CMD_STORE:
                         fineGrained->cycles += fineGrained->storeLatency + 1;
+                        SIM_MemDataRead_ReturnValue = fineGrained->threads[i].registers->reg[inst.src1_index];
+                        SIM_MemDataWrite(inst.dst_index + inst.src2_index_imm, SIM_MemDataRead_ReturnValue);  /// shouldn't this be the register value and not the index?
                         break;
                     case CMD_HALT:
-                        fineGrained->cycles++;
+                        //fineGrained->cycles++; /// maybe shouldnt happen
+                        fineGrained->threads[i].finished = true;
                         break;
                 }
                 fineGrained->instructions++;
+                fineGrained->threads[i].currInst++;
             }
         }
         // end if all threads are finished
@@ -225,27 +242,30 @@ void CORE_FinegrainedMT() {
 }
 
 double CORE_BlockedMT_CPI() {
-    double BlockedMT_CPI = block->cycles / block->instructions;
+    double BlockedMT_CPI = block->instructions ? block->cycles / block->instructions : 0;
 
-    delete block;
+    //delete block;
     return BlockedMT_CPI;
 }
 
 double CORE_FinegrainedMT_CPI() {
-    double FinegrainedMT_CPI = block->cycles / block->instructions;
+    cout << "FinegrainedMT_CPI = " << fineGrained->cycles << " / " << fineGrained->instructions << endl;
+    double FinegrainedMT_CPI = fineGrained->instructions ? (double)fineGrained->cycles / (double)fineGrained->instructions : 0;
 
-    delete fineGrained;
+    //delete fineGrained;
     return FinegrainedMT_CPI;
 }
 
 void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
     for(int i = 0; i < REGS_COUNT; i++) {
-        context[i] = block->threads[threadid].registers[i];
+        context->reg[i] = block->threads[threadid].registers->reg[i];
     }
 }
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
     for(int i = 0; i < REGS_COUNT; i++) {
-        context[i] = fineGrained->threads[threadid].registers[i];
+        //cout << "reg[" << i << "]: " << fineGrained->threads[threadid].registers->reg[i] << endl;
+        //context->reg[i] = fineGrained->threads[threadid].registers->reg[i];
+        context[threadid].reg[i] = fineGrained->threads[threadid].registers->reg[i];
     }
 }
