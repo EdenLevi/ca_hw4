@@ -12,7 +12,22 @@ class thread {
 public:
     bool finished;
     tcontext *registers;
+    int currInst;
 
+    thread() : finished(false), currInst(0) {
+
+        cout << "thread constructed" << endl;
+
+        registers = new tcontext();
+
+        for(int i = 0; i < REGS_COUNT; i++) {
+            registers->reg[i] = 0;
+        }
+    }
+
+    ~thread() {
+        delete registers;
+    }
 };
 
 class MT_core {
@@ -23,16 +38,19 @@ public:
     thread *threads;
     int cycles;
     int instructions; // CPI will be calculated based on this
-    int RR; // initialized to thread 0
 
-    MT_core(int threadsSize, thread *threads, int cycles, int instructions) : threadsSize(threadsSize),
-                                                                              threads(threads), cycles(cycles),
-                                                                              instructions(instructions) {
+    MT_core(int threadsSize) : threadsSize(threadsSize), cycles(0), instructions(0) {
         loadLatency = SIM_GetLoadLat();
         storeLatency = SIM_GetStoreLat();
+
+        threads = new thread[threadsSize];
+        cout << "MT_core constructed" << endl;
     }
 
-    virtual ~MT_core() {}
+    virtual ~MT_core() {
+        delete[] threads;
+        cout << "MT_core destructed" << endl;
+    }
 
     virtual void load() = 0;
 
@@ -54,14 +72,14 @@ class BlockCore : virtual public MT_core {
 public:
     int switchOverhead;
 
-    BlockCore(int threadsSize, thread *threads, int cycles, int instructions) : MT_core(threadsSize, threads, cycles,
-                                                                                        instructions) {
+    BlockCore(int threadsSize) : MT_core(threadsSize) {
         switchOverhead = SIM_GetSwitchCycles(); // relevant only for BLOCK
         cout << "block constructed" << endl;
     }
 
     ~BlockCore() {
         cout << "block destructed" << endl;
+        delete[] threads;
     }
 
     virtual void load() {
@@ -95,13 +113,13 @@ public:
 
 class FineGrainedCore : virtual public MT_core {
 public:
-    FineGrainedCore(int threadsSize, thread *threads, int cycles, int instructions) : MT_core(threadsSize, threads,
-                                                                                              cycles, instructions) {
+    FineGrainedCore(int threadsSize) : MT_core(threadsSize) {
         cout << "fine grained constructed" << endl;
     }
 
     ~FineGrainedCore() {
         cout << "fine grained destructed" << endl;
+        delete[] threads;
     }
 
     void load() {
@@ -133,36 +151,23 @@ public:
     }
 };
 
-BlockCore block = BlockCore(SIM_GetThreadsNum(), nullptr, SIM_GetSwitchCycles(), 0); // (int threadsSize, thread *threads, int cycles, int instructions)
-FineGrainedCore fineGrained = FineGrainedCore();
+BlockCore* block;
+FineGrainedCore* fineGrained;
+Instruction inst;
 
 // run a simulation of BlockCore
 void CORE_BlockedMT() {
+
+    block = new BlockCore(SIM_GetThreadsNum());
+
     while (true) {
         bool stillAlive = false;
-        for (int i = 0; i < block.threadsSize; i++) {
-            if (block.threads[(block.RR + i) % block.threadsSize].finished) {
-                continue;
-            } else stillAlive = true;
-
-            /// do stuff here
-
-            /// *************
-        }
-        // end if all threads are finished
-        if (!stillAlive) break;
-    }
-}
-
-void CORE_FinegrainedMT() {
-    while (true) {
-        bool stillAlive = false;
-        for (int i = 0; i < fineGrained.threadsSize; i++) {
-            if (fineGrained.threads[(fineGrained.RR + i) % fineGrained.threadsSize].finished) {
+        for (int i = 0; i < block->threadsSize; i++) {
+            if (block->threads[i].finished) {
                 continue;
             } else {
                 stillAlive = true;
-                fineGrained.instructions++;
+                block->instructions++;
             }
 
             /// do stuff here
@@ -174,28 +179,73 @@ void CORE_FinegrainedMT() {
     }
 }
 
-double CORE_BlockedMT_CPI() {
-    double BlockedMT_CPI = block.cycles / block.instructions;
+void CORE_FinegrainedMT() {
 
-    // can release memory here
+    fineGrained = new FineGrainedCore(SIM_GetThreadsNum());
+
+    while (true) {
+        bool stillAlive = false;
+        for (int i = 0; i < fineGrained->threadsSize; i++) {
+            if (fineGrained->threads[i].finished) {
+                continue;
+            } else {
+                stillAlive = true;
+
+                SIM_MemInstRead(fineGrained->threads[i].currInst, &inst, i);
+                switch(inst.opcode) {
+                    case CMD_NOP:
+                        fineGrained->cycles++;
+                        break;
+                    case CMD_ADD:
+                        fineGrained->cycles++;
+                        fineGrained->threads[i].registers->reg[inst.dst_index] = fineGrained->threads[i].registers->reg[inst.src1_index] + fineGrained->threads[i].registers->reg[inst.src2_index_imm];
+                        break;
+                    case CMD_SUB:
+                        break;
+                    case CMD_ADDI:
+                        break;
+                    case CMD_SUBI:
+                        break;
+                    case CMD_LOAD:
+                        fineGrained->cycles += fineGrained->loadLatency + 1;
+                        break;
+                    case CMD_STORE:
+                        fineGrained->cycles += fineGrained->storeLatency + 1;
+                        break;
+                    case CMD_HALT:
+                        fineGrained->cycles++;
+                        break;
+                }
+                fineGrained->instructions++;
+            }
+        }
+        // end if all threads are finished
+        if (!stillAlive) break;
+    }
+}
+
+double CORE_BlockedMT_CPI() {
+    double BlockedMT_CPI = block->cycles / block->instructions;
+
+    delete block;
     return BlockedMT_CPI;
 }
 
 double CORE_FinegrainedMT_CPI() {
-    double FinegrainedMT_CPI = block.cycles / block.instructions;
+    double FinegrainedMT_CPI = block->cycles / block->instructions;
 
-    // can release memory here
+    delete fineGrained;
     return FinegrainedMT_CPI;
 }
 
 void CORE_BlockedMT_CTX(tcontext *context, int threadid) {
     for(int i = 0; i < REGS_COUNT; i++) {
-        context[i] = block.threads[threadid].registers[i];
+        context[i] = block->threads[threadid].registers[i];
     }
 }
 
 void CORE_FinegrainedMT_CTX(tcontext *context, int threadid) {
     for(int i = 0; i < REGS_COUNT; i++) {
-        context[i] = fineGrained.threads[threadid].registers[i];
+        context[i] = fineGrained->threads[threadid].registers[i];
     }
 }
