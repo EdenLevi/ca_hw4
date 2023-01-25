@@ -162,7 +162,7 @@ void CORE_BlockedMT() {
     block = new BlockCore(SIM_GetThreadsNum());
 
     cout << block->threadsSize << endl;
-    int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = 0, liveThreads = block->threadsSize;
+    int SIM_MemDataRead_ReturnValue, currentThread = 0, previousThread = 0, nextThread = -1, liveThreads = block->threadsSize;
     while (liveThreads) {
         cout << "WE ARE HERE\n";
         if (block->threads[currentThread].finished) {
@@ -221,31 +221,27 @@ void CORE_BlockedMT() {
                             block->threads[currentThread].idleTimer++;
                             block->threads[currentThread].finished = true;
 
-                            bool allHalted = true;
-                            for (int i = 0; i < block->threadsSize; i++) {
-                                allHalted = block->threads[i].finished;
-                            }
-                            if (allHalted) {
-                                block->instructions++;
-                                block->cycles++;
-                                return;
-                            }
-
+                            bool allHalted = true; /// not needed
+                            liveThreads--;
                             break;
                     }
-                }
 
-                liveThreads--;
+                }
 
 
             } else { /// current thread is waiting
-                for (int j = 0; j < block->threadsSize; j++) {
-                    bool foundReadyThread = false;
-
-                    if (block->threads[(currentThread + j) % (block->threadsSize)].idleTimer == 0) { /// found a ready thread
+                bool foundReadyThread = false;
+                for (int j = 0; (!foundReadyThread) && j < block->threadsSize; j++) {
+                    if (block->threads[(currentThread + j) % (block->threadsSize)].idleTimer ==
+                        0) { /// found a ready thread
+                        if (foundReadyThread == false) nextThread = currentThread + (currentThread + j) % (block->threadsSize);
                         foundReadyThread = true;
                     }
                 }
+
+
+
+
             }
         }
     }
